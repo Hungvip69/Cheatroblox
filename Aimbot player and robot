@@ -22,6 +22,15 @@ local function Notify(title, text, duration)
         })
     end)
 end
+local function Notify2(title, text, duration)
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = title,
+            Text = text,
+            Duration = duration or 3
+        })
+    end)
+end
 
 -- Cập nhật cache mục tiêu
 local function UpdateTargetCache()
@@ -114,4 +123,5 @@ end)
 
 -- Thiết lập môi trường
 SetupWorkspaceListener()
-Notify("Aimbot by Hungvip69 aka Hungbayacc", "Aimbot Initialized. Press 'E' to toggle.", 5)
+Notify("Aimbot", "Aimbot Initialized. Press 'E' to toggle.", 5)
+Notify2("Make by", " by Hungvip69 aka Hungbayacc.", 5)
