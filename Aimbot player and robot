@@ -114,4 +114,4 @@ end)
 
 -- Thiết lập môi trường
 SetupWorkspaceListener()
-Notify("Aimbot", "Aimbot Initialized. Press 'E' to toggle.", 5)
+Notify("Aimbot by Hungvip69 aka Hungbayacc", "Aimbot Initialized. Press 'E' to toggle.", 5)
