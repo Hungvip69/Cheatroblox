@@ -1,53 +1,52 @@
-local P = game:GetService("Players").LocalPlayer
-local UIS = game:GetService("UserInputService")
-local RS = game:GetService("RunService")
-local Cam = workspace.CurrentCamera
-local aiming = false
-local conn = nil
-
-UIS.InputBegan:Connect(function(i,g)
-    if not g and i.KeyCode == Enum.KeyCode.E then
-        aiming = not aiming
-        if aiming then
-            local head = nil
-            local best = math.huge
-            local center = Vector2.new(Cam.ViewportSize.X/2, Cam.ViewportSize.Y/2)
-            
-            for _,v in pairs(workspace:GetDescendants()) do
-                if v:IsA("BasePart") and v.Name == "Head" and v.Parent ~= P.Character then
-                    local hum = v.Parent:FindFirstChildOfClass("Humanoid")
-                    if hum and hum.Health > 0 then
-                        local pos,vis = Cam:WorldToViewportPoint(v.Position)
-                        if vis then
-                            local dist = (Vector2.new(pos.X,pos.Y)-center).Magnitude
-                            if dist < best then
-                                best = dist
-                                head = v
-                            end
-                        end
-                    end
+local P, UIS, RS, Cam = game:GetService("Players").LocalPlayer, game:GetService("UserInputService"), game:GetService("RunService"), workspace.CurrentCamera
+local aimKey, aiming, conn = Enum.KeyCode.T, false, nil
+local gui = Instance.new("ScreenGui", P:WaitForChild("PlayerGui"))
+gui.ResetOnSpawn = false
+local frame = Instance.new("Frame", gui)
+frame.Size, frame.Position = UDim2.new(0,180,0,80), UDim2.new(0,20,0,20)
+frame.BackgroundColor3, frame.Active, frame.Draggable = Color3.fromRGB(40,40,40), true, true
+local label = Instance.new("TextLabel", frame)
+label.Size, label.Position = UDim2.new(1,-24,0.5,0), UDim2.new(0,5,0,0)
+label.Text, label.TextColor3, label.BackgroundTransparency = "Keybind: "..aimKey.Name, Color3.new(1,1,1), 1
+label.Font, label.TextSize = Enum.Font.SourceSans, 18
+local box = Instance.new("TextBox", frame)
+box.Size, box.Position = UDim2.new(1,-10,0.4,0), UDim2.new(0,5,0.55,0)
+box.PlaceholderText, box.TextColor3, box.BackgroundColor3 = "Type key", Color3.new(1,1,1), Color3.fromRGB(60,60,60)
+box.Font, box.TextSize, box.Text = Enum.Font.SourceSans, 16, ""
+local close = Instance.new("TextButton", frame)
+close.Size, close.Position = UDim2.new(0,20,0,20), UDim2.new(1,-22,0,2)
+close.Text, close.TextColor3, close.BackgroundColor3 = "X", Color3.new(1,0,0), Color3.fromRGB(60,60,60)
+local open = Instance.new("TextButton", gui)
+open.Size, open.Position = UDim2.new(0,30,0,30), frame.Position
+open.Text, open.Visible, open.TextColor3 = "+", false, Color3.new(1,1,1)
+open.BackgroundColor3, open.Active, open.Draggable = Color3.fromRGB(255,80,80), true, true
+close.MouseButton1Click:Connect(function() open.Position, frame.Visible, open.Visible = frame.Position, false, true end)
+open.MouseButton1Click:Connect(function() frame.Position, frame.Visible, open.Visible = open.Position, true, false end)
+box.FocusLost:Connect(function()
+    local ok, k = pcall(function() return Enum.KeyCode[box.Text:upper()] end)
+    if ok and k then aimKey, label.Text = k, "Keybind: "..k.Name end
+    box.Text = ""
+end)
+UIS.InputBegan:Connect(function(i, g)
+    if g or i.KeyCode ~= aimKey then return end
+    aiming = not aiming
+    if aiming then
+        local head, bestDist, center = nil, math.huge, Vector2.new(Cam.ViewportSize.X/2, Cam.ViewportSize.Y/2)
+        for _, v in ipairs(workspace:GetDescendants()) do
+            if v:IsA("BasePart") and v.Name == "Head" and v.Parent ~= P.Character then
+                local hum, pos, onScreen = v.Parent:FindFirstChildOfClass("Humanoid"), Cam:WorldToViewportPoint(v.Position)
+                if hum and hum.Health > 0 and onScreen then
+                    local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                    if dist < bestDist then bestDist, head = dist, v end
                 end
             end
-            
-            if head then
-                conn = RS.RenderStepped:Connect(function()
-                    if not head or not head.Parent then
-                        aiming = false
-                        if conn then conn:Disconnect() end
-                        return
-                    end
-                    Cam.CFrame = Cam.CFrame:Lerp(CFrame.new(Cam.CFrame.Position, head.Position), 0.8)
-                end)
-            else
-                aiming = false
-            end
-        elseif conn then
-            conn:Disconnect()
         end
-    end
+        if head then
+            conn = RS.RenderStepped:Connect(function()
+                if not head or not head.Parent then aiming, conn = false, conn and conn:Disconnect() return end
+                Cam.CFrame = Cam.CFrame:Lerp(CFrame.new(Cam.CFrame.Position, head.Position), 0.8)
+            end)
+        else aiming = false end
+    elseif conn then conn:Disconnect() end
 end)
-
-P.CharacterAdded:Connect(function()
-    if conn then conn:Disconnect() end
-    aiming = false
-end)
+P.CharacterAdded:Connect(function() if conn then conn:Disconnect() end aiming = false end)
