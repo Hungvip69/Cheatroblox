@@ -1,127 +1,53 @@
--- Aimbot Script
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local Camera = workspace.CurrentCamera
-local StarterGui = game:GetService("StarterGui")
-local LocalPlayer = Players.LocalPlayer
+local P = game:GetService("Players").LocalPlayer
+local UIS = game:GetService("UserInputService")
+local RS = game:GetService("RunService")
+local Cam = workspace.CurrentCamera
+local aiming = false
+local conn = nil
 
-local AimKey = Enum.KeyCode.E
-local AimRadius = 200
-local AimbotEnabled = false
-local Target = nil
-local TargetCache = {}
-
--- Thông báo
-local function Notify(title, text, duration)
-    pcall(function()
-        StarterGui:SetCore("SendNotification", {
-            Title = title,
-            Text = text,
-            Duration = duration or 3
-        })
-    end)
-end
-local function Notify2(title, text, duration)
-    pcall(function()
-        StarterGui:SetCore("SendNotification", {
-            Title = title,
-            Text = text,
-            Duration = duration or 3
-        })
-    end)
-end
-
--- Cập nhật cache mục tiêu
-local function UpdateTargetCache()
-    TargetCache = {}
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj:FindFirstChild("Head") then
-            table.insert(TargetCache, obj)
-        end
-    end
-end
-
--- Lắng nghe thay đổi trong workspace
-local function SetupWorkspaceListener()
-    workspace.ChildAdded:Connect(function(child)
-        if child:IsA("Model") and child:FindFirstChild("Humanoid") and child:FindFirstChild("Head") then
-            table.insert(TargetCache, child)
-        end
-    end)
-
-    workspace.ChildRemoved:Connect(function(child)
-        for i, obj in ipairs(TargetCache) do
-            if obj == child then
-                table.remove(TargetCache, i)
-                break
-            end
-        end
-    end)
-end
-
--- Tìm mục tiêu gần nhất trong cache
-local function GetNearestObjectWithinRadius()
-    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-    local closestObject = nil
-    local closestDistance = math.huge
-
-    for _, obj in ipairs(TargetCache) do
-        if obj ~= LocalPlayer.Character and obj:FindFirstChild("Head") then
-            local head = obj.Head
-            local screenPosition, onScreen = Camera:WorldToScreenPoint(head.Position)
-
-            if onScreen then
-                local distance = (Vector2.new(screenPosition.X, screenPosition.Y) - screenCenter).Magnitude
-                if distance <= AimRadius and distance < closestDistance then
-                    closestDistance = distance
-                    closestObject = obj
+UIS.InputBegan:Connect(function(i,g)
+    if not g and i.KeyCode == Enum.KeyCode.E then
+        aiming = not aiming
+        if aiming then
+            local head = nil
+            local best = math.huge
+            local center = Vector2.new(Cam.ViewportSize.X/2, Cam.ViewportSize.Y/2)
+            
+            for _,v in pairs(workspace:GetDescendants()) do
+                if v:IsA("BasePart") and v.Name == "Head" and v.Parent ~= P.Character then
+                    local hum = v.Parent:FindFirstChildOfClass("Humanoid")
+                    if hum and hum.Health > 0 then
+                        local pos,vis = Cam:WorldToViewportPoint(v.Position)
+                        if vis then
+                            local dist = (Vector2.new(pos.X,pos.Y)-center).Magnitude
+                            if dist < best then
+                                best = dist
+                                head = v
+                            end
+                        end
+                    end
                 end
             end
-        end
-    end
-
-    return closestObject
-end
-
--- Tự động nhắm mục tiêu
-local function AimAt(targetPart)
-    if targetPart then
-        Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetPart.Position)
-    end
-end
-
--- Xử lý phím nhấn
-UserInputService.InputBegan:Connect(function(input, isProcessed)
-    if isProcessed then return end
-
-    if input.KeyCode == AimKey then
-        AimbotEnabled = not AimbotEnabled
-        if AimbotEnabled then
-            Notify("Aimbot", "Aimbot Enabled", 3)
-            UpdateTargetCache() -- Cập nhật cache ban đầu
-        else
-            Notify("Aimbot", "Aimbot Disabled", 3)
-            Target = nil
+            
+            if head then
+                conn = RS.RenderStepped:Connect(function()
+                    if not head or not head.Parent then
+                        aiming = false
+                        if conn then conn:Disconnect() end
+                        return
+                    end
+                    Cam.CFrame = Cam.CFrame:Lerp(CFrame.new(Cam.CFrame.Position, head.Position), 0.8)
+                end)
+            else
+                aiming = false
+            end
+        elseif conn then
+            conn:Disconnect()
         end
     end
 end)
 
--- Xử lý nhắm mục tiêu
-RunService.RenderStepped:Connect(function()
-    if AimbotEnabled then
-        if not Target or not Target:FindFirstChild("Head") then
-            Target = GetNearestObjectWithinRadius()
-        end
-
-        if Target and Target:FindFirstChild("Head") then
-            local targetPart = Target:FindFirstChild("Head")
-            AimAt(targetPart)
-        end
-    end
+P.CharacterAdded:Connect(function()
+    if conn then conn:Disconnect() end
+    aiming = false
 end)
-
--- Thiết lập môi trường
-SetupWorkspaceListener()
-Notify("Aimbot", "Aimbot Initialized. Press 'E' to toggle.", 5)
-Notify2("Make by", "Hungvip69 aka Hungbayacc.", 5)
