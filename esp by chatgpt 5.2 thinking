@@ -1,0 +1,58 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local SHOW_ME = false
+local NPC_COLOR = Color3.fromRGB(0, 255, 0)
+
+local folder = workspace:FindFirstChild("HumanoidHighlights_Client") or Instance.new("Folder", workspace)
+folder.Name = "HumanoidHighlights_Client"
+
+local tracked = {} -- [Model] = Highlight
+local lp = Players.LocalPlayer
+
+local function isMe(model) return lp and lp.Character == model end
+local function getColor(model)
+	local p = Players:GetPlayerFromCharacter(model)
+	return (p and p.TeamColor and p.TeamColor.Color) or NPC_COLOR
+end
+local function cleanup(model)
+	local h = tracked[model]
+	if h then h:Destroy() tracked[model] = nil end
+end
+
+local function addHumanoid(hum)
+	local model = hum.Parent
+	if not (model and model:IsA("Model")) then return end
+	if tracked[model] or ((not SHOW_ME) and isMe(model)) then return end
+
+	local hi = Instance.new("Highlight")
+	hi.Adornee = model
+	hi.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	hi.FillTransparency, hi.OutlineTransparency = 1, 0
+	hi.OutlineColor = getColor(model)
+	hi.Parent = folder
+	tracked[model] = hi
+end
+
+for _, d in ipairs(workspace:GetDescendants()) do
+	if d:IsA("Humanoid") then addHumanoid(d) end
+end
+
+workspace.DescendantAdded:Connect(function(d)
+	if d:IsA("Humanoid") then task.defer(addHumanoid, d) end
+end)
+
+workspace.DescendantRemoving:Connect(function(d)
+	if d:IsA("Model") then cleanup(d) end
+end)
+
+RunService.Heartbeat:Connect(function()
+	for model, hi in pairs(tracked) do
+		local hum = model:FindFirstChildOfClass("Humanoid")
+		if not model.Parent or not hum or hum.Health <= 0 then
+			cleanup(model)
+		else
+			hi.OutlineColor = getColor(model)
+		end
+	end
+end)
